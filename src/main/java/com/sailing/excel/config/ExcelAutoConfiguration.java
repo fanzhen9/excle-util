@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.concurrent.*;
+
 /**
  * @author fox
  */
@@ -21,19 +23,28 @@ public class ExcelAutoConfiguration {
     public RestTemplate restTemplate(){
         return new RestTemplate();
     }
-    @Bean
+    /*@Bean
     public DownLoadService downLoadService(){
         return new DownLoadService();
-    }
-
-    @Bean
-    public ExcelService excelService(RestTemplate restTemplate, ExcelConfig excelConfig, DownLoadService downLoadService){
-        ExcelService excelService = new ExcelService(excelConfig,restTemplate,downLoadService);
-        return excelService;
-    }
+    }*/
 
     @Bean
     public ZipService zipService(ExcelConfig excelConfig){
         return new ZipService(excelConfig);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ThreadPoolExecutor.class)
+    public ThreadPoolExecutor executorService(){
+        BlockingQueue<Runnable> blockingQueue = new LinkedBlockingQueue();
+        return new ThreadPoolExecutor(10, 20,
+                60L, TimeUnit.SECONDS,blockingQueue
+                );
+    }
+
+    @Bean
+    public ExcelService excelService(RestTemplate restTemplate, ExcelConfig excelConfig,ThreadPoolExecutor threadPoolExecutor){
+        ExcelService excelService = new ExcelService(excelConfig,restTemplate,threadPoolExecutor);
+        return excelService;
     }
 }

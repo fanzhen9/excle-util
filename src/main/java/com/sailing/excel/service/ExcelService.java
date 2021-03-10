@@ -6,6 +6,8 @@ import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.xssf.usermodel.*;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
@@ -18,6 +20,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * @author fox
@@ -30,12 +35,12 @@ public class ExcelService {
 
     private RestTemplate restTemplate;
 
-    private DownLoadService downLoadService;
+    private ThreadPoolExecutor threadPoolExecutor;
 
-    public ExcelService(ExcelConfig excelConfig,RestTemplate restTemplate,DownLoadService downLoadService){
+    public ExcelService(ExcelConfig excelConfig,RestTemplate restTemplate,ThreadPoolExecutor threadPoolExecutor){
         this.excelConfig = excelConfig;
         this.restTemplate = restTemplate;
-        this.downLoadService = downLoadService;
+        this.threadPoolExecutor = threadPoolExecutor;
     }
     public ExcelService(ExcelConfig excelConfig,RestTemplate restTemplate){
         this.excelConfig = excelConfig;
@@ -61,15 +66,23 @@ public class ExcelService {
         //创建第一行
         XSSFRow row = createSheet.createRow(0);
         Field[] fields = clazz.getDeclaredFields();
+        Semaphore semaphore = new Semaphore(20);
+        int urlCount = 0;
         for (Field field : fields) {
             if(field.isAnnotationPresent(Excel.class)){
                 Excel annotation = field.getAnnotation(Excel.class);
                 Integer index = annotation.index();
                 String name = annotation.name();
                 XSSFCell cell = row.createCell(index);
+                boolean url = annotation.isUrl();
+                if(url){
+                    urlCount ++;
+                }
                 cell.setCellValue(name);
             }
         }
+        final CountDownLatch countDownLatch = new CountDownLatch(list.size() * urlCount);
+
         for (int i = 0; i < list.size(); i++) {
             XSSFRow dataRow = createSheet.createRow(i+1);
             Field[] dataFields = clazz.getDeclaredFields();
@@ -89,6 +102,10 @@ public class ExcelService {
                         String methodGet = "get" + str1.toUpperCase() + str2;
                         Method method = clazz.getMethod(methodGet);
                         Object object = method.invoke(t);
+                        if (object == null) {
+                            classType = String.class;
+                            object = "";
+                        }
                         if(String.class == classType){
                             cell.setCellValue(String.valueOf(object));
                         }
@@ -101,14 +118,18 @@ public class ExcelService {
                         if(Boolean.class == classType){
                             cell.setCellValue(Boolean.valueOf(String.valueOf(object)));
                         }
-                        if(url && downLoadService != null){
+                        if(url){
                             File file = new File(excelConfig.getFilePath()+"/"+id+"/pic");
                             if(!file.exists()){
                                 file.mkdirs();
                             }
                             String fileName = getSimpleId()+".jpg";
-                            downLoadService.downLoadFile(excelConfig.getFilePath()+"/"+id+"/pic",fileName,restTemplate,String.valueOf(object));
+                            semaphore.acquire();
                             //开始图片下载
+                            //downLoadService.downLoadFile(excelConfig.getFilePath()+"/"+id+"/pic",fileName,restTemplate,String.valueOf(object));
+                            threadPoolExecutor.execute(new DownLoadService(excelConfig.getFilePath()+"/"+id+"/pic",fileName,restTemplate,String.valueOf(object),countDownLatch));
+
+                            semaphore.release();
                             CreationHelper createHelper = workbook.getCreationHelper();
                             XSSFHyperlink hyperlink = (XSSFHyperlink) createHelper.createHyperlink(HyperlinkType.FILE);
                             hyperlink.setAddress("./pic/"+fileName);
@@ -122,12 +143,17 @@ public class ExcelService {
                         e.printStackTrace();
                     } catch (InvocationTargetException e) {
                         e.printStackTrace();
-                    } catch (IOException e) {
+                    } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
 
                 }
             }
+        }
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
         try {
             File file = new File(excelConfig.getFilePath()+"/"+id);
