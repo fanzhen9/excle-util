@@ -53,7 +53,7 @@ public class ExcelService {
      * @param id
      * @param <T>
      */
-    public <T> void writeExcel(List<T> list,Class clazz,String id){
+    public <T> void writeExcel(List<T> list,Class clazz,String id,String cookIe){
         //构建excel文档
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFCellStyle linkStyle = workbook.createCellStyle();
@@ -127,7 +127,7 @@ public class ExcelService {
                             semaphore.acquire();
                             //开始图片下载
                             //downLoadService.downLoadFile(excelConfig.getFilePath()+"/"+id+"/pic",fileName,restTemplate,String.valueOf(object));
-                            threadPoolExecutor.execute(new DownLoadService(excelConfig.getFilePath()+"/"+id+"/pic",fileName,restTemplate,String.valueOf(object),countDownLatch));
+                            threadPoolExecutor.execute(new DownLoadService(excelConfig.getFilePath()+"/"+id+"/pic",fileName,restTemplate,String.valueOf(object),countDownLatch,cookIe));
 
                             semaphore.release();
                             CreationHelper createHelper = workbook.getCreationHelper();
