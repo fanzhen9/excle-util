@@ -1,9 +1,8 @@
 package com.sailing.excel.service;
 
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import sun.misc.BASE64Decoder;
 
@@ -29,18 +28,27 @@ public class DownLoadService implements Runnable{
 
     private CountDownLatch countDownLatch;
 
-    public DownLoadService(String path, String fileName, RestTemplate restTemplate, String url,CountDownLatch countDownLatch) {
+    private String cookIe;
+
+    public DownLoadService(String path, String fileName, RestTemplate restTemplate, String url,CountDownLatch countDownLatch,String cookIe) {
         this.path = path;
         this.fileName = fileName;
         this.restTemplate = restTemplate;
         this.url = url;
         this.countDownLatch = countDownLatch;
+        this.cookIe = cookIe;
     }
 
     public void run() {
         try {
             URI uri = new URI(url);
-            ResponseEntity<byte[]> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, null, byte[].class);
+            HttpEntity entity = null;
+            if(!StringUtils.isEmpty(cookIe)){
+                HttpHeaders headers = new HttpHeaders();
+                headers.add("cookie",cookIe);
+                entity = new HttpEntity(headers);
+            }
+            ResponseEntity<byte[]> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, entity, byte[].class);
             HttpStatus statusCode = responseEntity.getStatusCode();
             if(statusCode == HttpStatus.NOT_FOUND){
                 return;
