@@ -46,6 +46,11 @@ public class ExcelService {
         this.excelConfig = excelConfig;
         this.restTemplate = restTemplate;
     }
+
+
+    public <T> void writeExcel(List<T> list, Class clazz, String id) {
+        this.writeExcel(list, clazz, id, null);
+    }
     /**
      * 导入
      * @param list

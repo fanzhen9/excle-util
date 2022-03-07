@@ -33,6 +33,20 @@ public class ZipService {
         return zipFileName;
     }
 
+    /**
+     *
+     * @param inputFileName 需要打包的文件夹
+     * @param zipName 需要生成的zip名字
+     * @return
+     * @throws Exception
+     */
+    public String zip(String inputFileName,String zipName) throws Exception {
+        //打包后文件名字
+        String zipFileName = excelConfig.getFilePath()+"/"+ zipName+".zip";
+        zip(zipFileName, new File(inputFileName));
+        return zipFileName;
+    }
+
     private void zip(String zipFileName, File inputFile) throws Exception {
         ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFileName));
         zip(out, inputFile, "");
