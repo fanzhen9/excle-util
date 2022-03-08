@@ -14,7 +14,7 @@
 <dependency>
     <groupId>com.sailing</groupId>
     <artifactId>excel</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.6-SNAPSHOT</version>
 </dependency>
 ```
 
